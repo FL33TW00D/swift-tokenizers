@@ -27,4 +27,13 @@ Now we run it!
 ./test_tokenizer
 ```
 
+You should see some nice output:
+```bash
+~/Code/swift-tokenizers/unifii-exp master ❯ ./test_tokenizer                                                                                                                                                        
+Original text: Hello, world! How are you doing?
+Token IDs: [101, 7592, 1010, 2088, 999, 2129, 2024, 2017, 2725, 1029, 102]
+Tokens: ["[CLS]", "hello", ",", "world", "!", "how", "are", "you", "doing", "?", "[SEP]"]
+Decoded text: hello, world! how are you doing?
+```
+
 
