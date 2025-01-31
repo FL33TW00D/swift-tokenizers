@@ -1,0 +1,24 @@
+namespace tokenizers {
+    [Throws=TokenizerError]
+    Tokenizer from_pretrained(string identifier);
+};
+
+dictionary Encoding {
+    sequence<u32> ids;
+    sequence<string> tokens;
+};
+
+[Error]
+enum TokenizerError {
+    "LoadError",
+    "EncodeError", 
+    "DecodeError"
+};
+
+interface Tokenizer {
+    [Throws=TokenizerError]
+    Encoding encode(string text, boolean add_special_tokens);
+    
+    [Throws=TokenizerError]
+    string decode(sequence<u32> ids, boolean skip_special_tokens);
+};

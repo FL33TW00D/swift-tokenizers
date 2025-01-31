@@ -64,4 +64,5 @@ fastlane/test_output
 
 # Added by cargo
 
-/target
+**/target
+.DS_Store

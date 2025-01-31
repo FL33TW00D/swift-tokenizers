@@ -1,0 +1,23 @@
+[package]
+name = "uniffi-tokenizers"
+edition = "2021"
+version = "0.22.0"
+publish = false
+
+[[bin]]
+name = "uniffi-bindgen"
+path = "src/uniffi-bindgen.rs"
+
+[lib]
+crate-type = ["lib", "cdylib"]
+name = "uniffi_tokenizers"
+
+[dependencies]
+uniffi = { version = "0.28.3", features = ["cli"]}
+tokenizers = { version = "0.21", features = ["http"] }
+
+[build-dependencies]
+uniffi = { version = "0.28.3", features = ["build"] }
+
+[dev-dependencies]
+uniffi = { version = "0.28.3", features = ["bindgen-tests"] }
