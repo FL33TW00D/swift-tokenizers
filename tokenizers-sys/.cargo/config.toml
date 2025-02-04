@@ -1,0 +1,2 @@
+[target.'cfg(test)']
+rustflags = ["-Z", "sanitizer=address"]

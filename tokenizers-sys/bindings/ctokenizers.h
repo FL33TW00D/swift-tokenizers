@@ -22,6 +22,14 @@ typedef struct EncodingResult {
  */
 void tokenizer_free(struct TokenizerHandle *handle);
 
+/**
+ * Creates a new tokenizer from a pretrained model identifier
+ *
+ * # Safety
+ * Name must be a valid C string
+ * Returns a pointer to the TokenizerHandle
+ * The caller is responsible for freeing the memory using tokenizer_free()
+ */
 struct TokenizerHandle *tokenizer_from_pretrained(const char *name);
 
 /**
