@@ -1,0 +1,13 @@
+#!/bin/bash
+cargo build --release
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+clang -arch arm64 \
+    main.c \
+    -L target/release \
+    -ltokenizers_sys \
+    -lc++ \
+    -framework Security \
+    -framework Foundation \
+    -rpath @executable_path/../target/release \
+    -o example
+echo "Build completed with status: $?"
