@@ -1,6 +1,10 @@
-use std::ffi::{c_char, c_uint, CStr, CString};
+use std::ffi::{c_char, c_uint, CStr, CString, OsStr};
+use std::os::unix::ffi::OsStrExt;
+use std::path::Path;
 use std::ptr;
 use tokenizers::tokenizer::Tokenizer;
+
+use crate::encoding::Encoding;
 
 //Opaque struct to hide Tokenizer internals
 pub struct TokenizerHandle(*mut Tokenizer);
@@ -44,6 +48,65 @@ pub unsafe extern "C" fn tokenizer_from_pretrained(name: *const c_char) -> *mut 
     }
 }
 
+/// Instantiate a new :class:`~tokenizers.Tokenizer` from the given buffer.
+///
+/// Args:
+///     buffer (:obj:`bytes`):
+///         A buffer containing a previously serialized :class:`~tokenizers.Tokenizer`
+///
+/// Returns:
+///     :class:`~tokenizers.Tokenizer`: The new tokenizer
+#[no_mangle]
+pub unsafe extern "C" fn tokenizer_from_buffer(
+    buffer: *const u8,
+    len: usize,
+) -> *mut TokenizerHandle {
+    assert!(len > 0, "Tokenizer src buffer len must be greater than 0");
+    if buffer.is_null() {
+        return ptr::null_mut();
+    }
+
+    match Tokenizer::from_bytes(std::slice::from_raw_parts(buffer, len)) {
+        Ok(tokenizer) => {
+            let handle = Box::new(TokenizerHandle(Box::into_raw(Box::new(tokenizer))));
+            Box::into_raw(handle)
+        }
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Creates a new `Tokenizer` from a file containing a serialized tokenizer
+///
+/// # Safety
+/// - path must be a valid null-terminated C string
+/// - The file at path must contain a valid JSON serialized tokenizer
+/// - The caller is responsible for freeing the memory using tokenizer_free()
+///
+/// # Arguments
+/// * path - Path to the file containing the serialized tokenizer
+///
+/// # Returns
+/// * Pointer to the TokenizerHandle on success
+/// * NULL pointer on failure
+#[no_mangle]
+pub unsafe extern "C" fn tokenizer_from_file(path: *const c_char) -> *mut TokenizerHandle {
+    if path.is_null() {
+        return ptr::null_mut();
+    }
+
+    let str_bytes = CStr::from_ptr(path).to_bytes();
+    let osstr = OsStr::from_bytes(str_bytes);
+    let path: &Path = osstr.as_ref();
+
+    match Tokenizer::from_file(path) {
+        Ok(tokenizer) => {
+            let handle = Box::new(TokenizerHandle(Box::into_raw(Box::new(tokenizer))));
+            Box::into_raw(handle)
+        }
+        Err(_) => ptr::null_mut(),
+    }
+}
+
 /// Encodes text using the given tokenizer
 ///
 /// # Safety
@@ -54,7 +117,7 @@ pub unsafe extern "C" fn tokenizer_encode(
     handle: *mut TokenizerHandle,
     text: *const c_char,
     add_special_tokens: bool,
-) -> *mut EncodingResult {
+) -> *mut Encoding {
     let tokenizer = unsafe {
         if handle.is_null() {
             return ptr::null_mut();
@@ -69,28 +132,29 @@ pub unsafe extern "C" fn tokenizer_encode(
 
     match tokenizer.encode(text, add_special_tokens) {
         Ok(encoding) => {
-            let u32_to_c_uint =
+            let u32_to_cuint =
                 |u: &[u32]| -> Vec<c_uint> { u.iter().map(|&id| id as c_uint).collect() };
 
-            let ids = u32_to_c_uint(encoding.get_ids());
-            let attention_mask = u32_to_c_uint(encoding.get_attention_mask());
-            let type_ids = u32_to_c_uint(encoding.get_type_ids());
-            let special_tokens_mask = u32_to_c_uint(encoding.get_special_tokens_mask());
+            let ids = u32_to_cuint(encoding.get_ids());
+            let attention_mask = u32_to_cuint(encoding.get_attention_mask());
+            let type_ids = u32_to_cuint(encoding.get_type_ids());
+            let sp_tk_mask = u32_to_cuint(encoding.get_special_tokens_mask());
             let tokens = encoding.get_tokens();
 
-            // Convert tokens to C strings
-            let c_tokens: Vec<*mut c_char> = tokens
+            let c_tks = match tokens
                 .iter()
-                .map(|s| CString::new(s.as_str()).unwrap().into_raw())
-                .collect();
+                .map(|s| CString::new(s.as_str()).map(|c_str| c_str.into_raw()))
+                .collect::<Result<Vec<*mut c_char>, _>>()
+            {
+                Ok(tks) => tks,
+                Err(_) => return ptr::null_mut(),
+            };
 
-            // Allocate and copy arrays
-            let result = Box::new(EncodingResult {
-                tokens: Box::into_raw(c_tokens.into_boxed_slice()) as *mut *mut c_char,
+            let result = Box::new(Encoding {
+                tokens: Box::into_raw(c_tks.into_boxed_slice()) as *mut *mut c_char,
                 attention_mask: Box::into_raw(attention_mask.into_boxed_slice()) as *mut c_uint,
                 type_ids: Box::into_raw(type_ids.into_boxed_slice()) as *mut c_uint,
-                special_tokens_mask: Box::into_raw(special_tokens_mask.into_boxed_slice())
-                    as *mut c_uint,
+                special_tokens_mask: Box::into_raw(sp_tk_mask.into_boxed_slice()) as *mut c_uint,
                 length: ids.len(),
                 ids: Box::into_raw(ids.into_boxed_slice()) as *mut c_uint,
             });
@@ -142,45 +206,10 @@ pub unsafe extern "C" fn free_rstring(s: *mut c_char) {
     }
 }
 
-#[repr(C)]
-pub struct EncodingResult {
-    ids: *mut c_uint,
-    tokens: *mut *mut c_char,
-    attention_mask: *mut c_uint,
-    type_ids: *mut c_uint,
-    special_tokens_mask: *mut c_uint,
-    length: usize,
-}
-
-/// Frees the EncodingResult
-///
-/// # Safety
-/// Input must be a valid EncodingResult
-#[no_mangle]
-pub unsafe extern "C" fn encoding_result_free(result: *mut EncodingResult) {
-    if !result.is_null() {
-        let r = unsafe { Box::from_raw(result) };
-        let len = r.length;
-
-        // Free arrays
-        unsafe {
-            let _ids = Box::from_raw(std::slice::from_raw_parts_mut(r.ids, len));
-            let _attn = Box::from_raw(std::slice::from_raw_parts_mut(r.attention_mask, len));
-            let _type_ids = Box::from_raw(std::slice::from_raw_parts_mut(r.type_ids, len));
-            let _special =
-                Box::from_raw(std::slice::from_raw_parts_mut(r.special_tokens_mask, len));
-
-            let tokens = Box::from_raw(std::slice::from_raw_parts_mut(r.tokens, len));
-            for token in tokens.iter() {
-                let _ = CString::from_raw(*token);
-            }
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::encoding::*;
 
     #[test]
     fn test_ffi_basics() -> anyhow::Result<()> {
