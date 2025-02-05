@@ -3,7 +3,8 @@
 Surfacing `tokenizers` to the world via C.
 
 ## TODO
-- [ ] Build system (Makefile or Zig)
+- [ ] Cross-compiling build system (Makefile or Zig)
+- [x] Tokenizer
 - [ ] Decoders
 - [ ] Encoding
 - [ ] Pre-tokenizers

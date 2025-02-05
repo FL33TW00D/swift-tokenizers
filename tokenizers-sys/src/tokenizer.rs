@@ -280,6 +280,11 @@ mod tests {
                 !handle.is_null(),
                 "Tokenizer handle should not be null for valid JSON"
             );
+            //tokenize something to prove it's correct
+            let text = CString::new("Hello world").unwrap();
+            let encoding = tokenizer_encode(handle, text.as_ptr(), true);
+            assert!(!encoding.is_null());
+            encoding_free(encoding);
 
             if !handle.is_null() {
                 tokenizer_free(handle);
