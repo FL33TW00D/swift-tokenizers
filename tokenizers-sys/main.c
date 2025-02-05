@@ -18,7 +18,7 @@ int main() {
 
     size_t length = encoding_get_length(encoding);
     const uint32_t* ids = encoding_get_ids(encoding, &length);
-    const char* const* tokens = encoding_get_tokens(encoding, &length);
+    char** tokens = encoding_get_tokens(encoding, &length);
     const uint32_t* type_ids = encoding_get_type_ids(encoding, &length);
     const uint32_t* special_tokens_mask = encoding_get_special_tokens_mask(encoding, &length);
     const uint32_t* attention_mask = encoding_get_attention_mask(encoding, &length);
