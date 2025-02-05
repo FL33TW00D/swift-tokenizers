@@ -186,6 +186,16 @@ pub unsafe extern "C" fn free_rstring(s: *mut c_char) {
 mod tests {
     use super::*;
     use crate::encoding::*;
+    use std::ffi::CString;
+    use std::fs::File;
+    use std::io::Read;
+    use std::ptr;
+
+    // Helper function to create test tokenizer
+    fn create_test_tokenizer() -> *mut TokenizerHandle {
+        let model = CString::new("bert-base-uncased").unwrap();
+        unsafe { tokenizer_from_pretrained(model.as_ptr()) }
+    }
 
     #[test]
     fn test_ffi_basics() -> anyhow::Result<()> {
@@ -193,14 +203,96 @@ mod tests {
             let handle = tokenizer_from_pretrained(std::ptr::null());
             assert!(handle.is_null());
 
-            let model = CString::new("bert-base-uncased").map_err(|n| anyhow::anyhow!(n))?;
-            let handle = tokenizer_from_pretrained(model.as_ptr());
+            let handle = create_test_tokenizer();
             let text = CString::new("Hello world!").map_err(|n| anyhow::anyhow!(n))?;
             let encoding = tokenizer_encode(handle, text.as_ptr(), true);
-            encoding_result_free(encoding);
+            encoding_free(encoding);
             tokenizer_free(handle);
 
             Ok(())
+        }
+    }
+
+    #[test]
+    fn test_tokenizer_creation_and_free() {
+        unsafe {
+            let handle = create_test_tokenizer();
+            assert!(!handle.is_null());
+            tokenizer_free(handle);
+        }
+    }
+
+    #[test]
+    fn test_tokenizer_null_inputs() {
+        unsafe {
+            let handle = tokenizer_from_pretrained(ptr::null());
+            assert!(handle.is_null());
+
+            let handle = tokenizer_from_file(ptr::null());
+            assert!(handle.is_null());
+        }
+    }
+
+    #[test]
+    fn test_tokenizer_encode_decode() {
+        unsafe {
+            let handle = create_test_tokenizer();
+            assert!(!handle.is_null());
+
+            let text = CString::new("Hello world").unwrap();
+            let encoding = tokenizer_encode(handle, text.as_ptr(), true);
+            assert!(!encoding.is_null());
+
+            let mut ids_length: usize = 0;
+            let ids = encoding_get_ids(encoding, &mut ids_length);
+            assert!(!ids.is_null());
+
+            // Test decoding
+            let decoded = tokenizer_decode(handle, ids as *const c_uint, ids_length, true);
+            assert!(!decoded.is_null());
+
+            // Cleanup
+            encoding_free(encoding);
+            free_rstring(decoded);
+            tokenizer_free(handle);
+        }
+    }
+
+    #[test]
+    fn test_invalid_tokenizer_from_buffer() {
+        unsafe {
+            let buffer: Vec<u8> = vec![1, 2, 3, 4];
+            let handle = tokenizer_from_buffer(buffer.as_ptr(), buffer.len());
+            assert!(handle.is_null());
+        }
+    }
+
+    #[test]
+    fn test_valid_tokenizer_from_buffer() {
+        let mut file =
+            File::open("resources/llama-3-tokenizer.json").expect("Failed to open tokenizer file");
+        let mut buffer = Vec::new();
+        file.read_to_end(&mut buffer).expect("Failed to read file");
+
+        unsafe {
+            let handle = tokenizer_from_buffer(buffer.as_ptr(), buffer.len());
+            assert!(
+                !handle.is_null(),
+                "Tokenizer handle should not be null for valid JSON"
+            );
+
+            if !handle.is_null() {
+                tokenizer_free(handle);
+            }
+        }
+    }
+
+    #[test]
+    fn test_tokenizer_from_file() {
+        unsafe {
+            let invalid_path = CString::new("/path/to/nonexistent/file").unwrap();
+            let handle = tokenizer_from_file(invalid_path.as_ptr());
+            assert!(handle.is_null());
         }
     }
 }

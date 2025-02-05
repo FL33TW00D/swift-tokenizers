@@ -66,3 +66,5 @@ fastlane/test_output
 
 **/target
 .DS_Store
+tokenizers-sys/example
+tokenizers-sys/resources
