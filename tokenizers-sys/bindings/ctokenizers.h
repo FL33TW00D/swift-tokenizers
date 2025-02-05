@@ -38,6 +38,11 @@ typedef struct UnigramVocabItem {
   double score;
 } UnigramVocabItem;
 
+typedef struct CFromPretrainedParameters {
+  const char *revision;
+  const char *token;
+} CFromPretrainedParameters;
+
 void encoding_free(struct CEncoding *encoding);
 
 uintptr_t encoding_get_length(const struct CEncoding *encoding);
@@ -88,14 +93,16 @@ struct ModelHandle *tk_unigram_new(const struct UnigramVocabItem *vocab,
 void tokenizer_free(struct TokenizerHandle *handle);
 
 /**
- * Creates a new tokenizer from a pretrained model identifier
+ * Creates a new tokenizer from a pretrained model identifier with parameters
  *
  * # Safety
- * Name must be a valid C string
+ * - `name` must be a valid C string
+ * - `params` must be either null or a valid pointer to FromPretrainedParametersFFI
  * Returns a pointer to the TokenizerHandle
  * The caller is responsible for freeing the memory using tokenizer_free()
  */
-struct TokenizerHandle *tokenizer_from_pretrained(const char *name);
+struct TokenizerHandle *tokenizer_from_pretrained(const char *name,
+                                                  const struct CFromPretrainedParameters *params);
 
 /**
  * Instantiate a new :class:`~tokenizers.Tokenizer` from the given buffer.

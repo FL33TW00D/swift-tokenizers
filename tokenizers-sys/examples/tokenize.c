@@ -13,7 +13,7 @@ void print_encoding_info(char* tokens[], const uint32_t* ids,
 }
 
 int test_bert_tokenizer(const char* text) {
-    TokenizerHandle* tokenizer = tokenizer_from_pretrained("bert-base-cased");
+    TokenizerHandle* tokenizer = tokenizer_from_pretrained("bert-base-cased", NULL);
     if (!tokenizer) {
         printf("Failed to load BERT tokenizer\n");
         return 1;
@@ -48,7 +48,7 @@ int test_bert_tokenizer(const char* text) {
 }
 
 int test_gpt2_tokenizer(const char* text) {
-    TokenizerHandle* tokenizer = tokenizer_from_pretrained("gpt2");
+    TokenizerHandle* tokenizer = tokenizer_from_pretrained("gpt2", NULL);
     if (!tokenizer) {
         printf("Failed to load GPT-2 tokenizer\n");
         return 1;

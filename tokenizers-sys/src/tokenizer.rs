@@ -1,10 +1,11 @@
+use std::collections::HashMap;
 use std::ffi::{c_char, c_uint, CStr, CString, OsStr};
 use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
 use std::ptr;
 
 use tk::tokenizer::Tokenizer;
-use tokenizers as tk;
+use tokenizers::{self as tk, FromPretrainedParameters};
 
 use crate::encoding::CEncoding;
 
@@ -23,25 +24,59 @@ pub unsafe extern "C" fn tokenizer_free(handle: *mut TokenizerHandle) {
     }
 }
 
-/// Creates a new tokenizer from a pretrained model identifier
+#[repr(C)]
+pub struct CFromPretrainedParameters {
+    pub revision: *const c_char,
+    pub token: *const c_char,
+}
+
+impl From<&CFromPretrainedParameters> for Option<FromPretrainedParameters> {
+    fn from(params: &CFromPretrainedParameters) -> Self {
+        unsafe {
+            let CFromPretrainedParameters { revision, token } = params;
+            let revision = match revision.is_null() {
+                true => "main",
+                false => CStr::from_ptr(*revision).to_str().unwrap_or(""),
+            };
+
+            let token = match token.is_null() {
+                true => None,
+                false => Some(CStr::from_ptr(*token).to_str().unwrap_or("").to_owned()),
+            };
+
+            Some(FromPretrainedParameters {
+                revision: revision.to_owned(),
+                user_agent: HashMap::new(), //User agent is not supported via FFI
+                token,
+            })
+        }
+    }
+}
+
+/// Creates a new tokenizer from a pretrained model identifier with parameters
 ///
 /// # Safety
-/// Name must be a valid C string
+/// - `name` must be a valid C string
+/// - `params` must be either null or a valid pointer to FromPretrainedParametersFFI
 /// Returns a pointer to the TokenizerHandle
 /// The caller is responsible for freeing the memory using tokenizer_free()
 #[no_mangle]
-pub unsafe extern "C" fn tokenizer_from_pretrained(name: *const c_char) -> *mut TokenizerHandle {
+pub unsafe extern "C" fn tokenizer_from_pretrained(
+    name: *const c_char,
+    params: *const CFromPretrainedParameters,
+) -> *mut TokenizerHandle {
     if name.is_null() {
         return ptr::null_mut();
     }
 
-    let c_name = match unsafe { CStr::from_ptr(name).to_str() } {
+    let c_name = match CStr::from_ptr(name).to_str() {
         Ok(s) => s,
         Err(_) => return ptr::null_mut(),
     };
 
-    //TODO: add params instead of None
-    match Tokenizer::from_pretrained(c_name, None) {
+    let params = params.as_ref().and_then(|p| p.into());
+
+    match Tokenizer::from_pretrained(c_name, params) {
         Ok(tokenizer) => {
             let handle = Box::new(TokenizerHandle(Box::into_raw(Box::new(tokenizer))));
             Box::into_raw(handle)
@@ -194,13 +229,13 @@ mod tests {
     // Helper function to create test tokenizer
     fn create_test_tokenizer() -> *mut TokenizerHandle {
         let model = CString::new("bert-base-uncased").unwrap();
-        unsafe { tokenizer_from_pretrained(model.as_ptr()) }
+        unsafe { tokenizer_from_pretrained(model.as_ptr(), ptr::null()) }
     }
 
     #[test]
     fn test_ffi_basics() -> anyhow::Result<()> {
         unsafe {
-            let handle = tokenizer_from_pretrained(std::ptr::null());
+            let handle = tokenizer_from_pretrained(ptr::null(), ptr::null());
             assert!(handle.is_null());
 
             let handle = create_test_tokenizer();
@@ -225,7 +260,7 @@ mod tests {
     #[test]
     fn test_tokenizer_null_inputs() {
         unsafe {
-            let handle = tokenizer_from_pretrained(ptr::null());
+            let handle = tokenizer_from_pretrained(ptr::null(), ptr::null());
             assert!(handle.is_null());
 
             let handle = tokenizer_from_file(ptr::null());
