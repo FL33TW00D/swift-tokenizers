@@ -29,7 +29,8 @@ int main() {
     char* decoded = tokenizer_decode(tokenizer, encoding->ids, encoding->length, true);
     if (decoded) {
         printf("\nDecoded text: %s\n", decoded);
-        free(decoded);
+        // FFI: He who allocs must dealloc i.e same side of FFI
+        free_rstring(decoded);
     }
 
     encoding_result_free(encoding);

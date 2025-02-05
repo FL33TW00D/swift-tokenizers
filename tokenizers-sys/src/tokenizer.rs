@@ -109,7 +109,7 @@ pub unsafe extern "C" fn tokenizer_encode(
 /// Length must be the length of the ids array
 ///
 /// # Returns
-/// A pointer to the decoded string. The caller is responsible for freeing the memory using free()
+/// A pointer to the decoded string.
 #[no_mangle]
 pub unsafe extern "C" fn tokenizer_decode(
     handle: *mut TokenizerHandle,
@@ -135,6 +135,13 @@ pub unsafe extern "C" fn tokenizer_decode(
     }
 }
 
+#[no_mangle]
+pub unsafe extern "C" fn free_rstring(s: *mut c_char) {
+    if !s.is_null() {
+        let _ = CString::from_raw(s);
+    }
+}
+
 #[repr(C)]
 pub struct EncodingResult {
     ids: *mut c_uint,
@@ -152,26 +159,18 @@ pub struct EncodingResult {
 #[no_mangle]
 pub unsafe extern "C" fn encoding_result_free(result: *mut EncodingResult) {
     if !result.is_null() {
-        let result = unsafe { Box::from_raw(result) };
+        let r = unsafe { Box::from_raw(result) };
+        let len = r.length;
 
         // Free arrays
         unsafe {
-            let _ids = Box::from_raw(std::slice::from_raw_parts_mut(result.ids, result.length));
-            let _attention = Box::from_raw(std::slice::from_raw_parts_mut(
-                result.attention_mask,
-                result.length,
-            ));
-            let _type_ids = Box::from_raw(std::slice::from_raw_parts_mut(
-                result.type_ids,
-                result.length,
-            ));
-            let _special = Box::from_raw(std::slice::from_raw_parts_mut(
-                result.special_tokens_mask,
-                result.length,
-            ));
+            let _ids = Box::from_raw(std::slice::from_raw_parts_mut(r.ids, len));
+            let _attn = Box::from_raw(std::slice::from_raw_parts_mut(r.attention_mask, len));
+            let _type_ids = Box::from_raw(std::slice::from_raw_parts_mut(r.type_ids, len));
+            let _special =
+                Box::from_raw(std::slice::from_raw_parts_mut(r.special_tokens_mask, len));
 
-            let tokens =
-                Box::from_raw(std::slice::from_raw_parts_mut(result.tokens, result.length));
+            let tokens = Box::from_raw(std::slice::from_raw_parts_mut(r.tokens, len));
             for token in tokens.iter() {
                 let _ = CString::from_raw(*token);
             }
