@@ -2,9 +2,11 @@ use std::ffi::{c_char, c_uint, CStr, CString, OsStr};
 use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
 use std::ptr;
-use tokenizers::tokenizer::Tokenizer;
 
-use crate::encoding::Encoding;
+use tk::tokenizer::Tokenizer;
+use tokenizers as tk;
+
+use crate::encoding::CEncoding;
 
 //Opaque struct to hide Tokenizer internals
 pub struct TokenizerHandle(*mut Tokenizer);
@@ -117,7 +119,7 @@ pub unsafe extern "C" fn tokenizer_encode(
     handle: *mut TokenizerHandle,
     text: *const c_char,
     add_special_tokens: bool,
-) -> *mut Encoding {
+) -> *mut CEncoding {
     let tokenizer = unsafe {
         if handle.is_null() {
             return ptr::null_mut();
@@ -131,36 +133,7 @@ pub unsafe extern "C" fn tokenizer_encode(
     };
 
     match tokenizer.encode(text, add_special_tokens) {
-        Ok(encoding) => {
-            let u32_to_cuint =
-                |u: &[u32]| -> Vec<c_uint> { u.iter().map(|&id| id as c_uint).collect() };
-
-            let ids = u32_to_cuint(encoding.get_ids());
-            let attention_mask = u32_to_cuint(encoding.get_attention_mask());
-            let type_ids = u32_to_cuint(encoding.get_type_ids());
-            let sp_tk_mask = u32_to_cuint(encoding.get_special_tokens_mask());
-            let tokens = encoding.get_tokens();
-
-            let c_tks = match tokens
-                .iter()
-                .map(|s| CString::new(s.as_str()).map(|c_str| c_str.into_raw()))
-                .collect::<Result<Vec<*mut c_char>, _>>()
-            {
-                Ok(tks) => tks,
-                Err(_) => return ptr::null_mut(),
-            };
-
-            let result = Box::new(Encoding {
-                tokens: Box::into_raw(c_tks.into_boxed_slice()) as *mut *mut c_char,
-                attention_mask: Box::into_raw(attention_mask.into_boxed_slice()) as *mut c_uint,
-                type_ids: Box::into_raw(type_ids.into_boxed_slice()) as *mut c_uint,
-                special_tokens_mask: Box::into_raw(sp_tk_mask.into_boxed_slice()) as *mut c_uint,
-                length: ids.len(),
-                ids: Box::into_raw(ids.into_boxed_slice()) as *mut c_uint,
-            });
-
-            Box::into_raw(result)
-        }
+        Ok(encoding) => Box::into_raw(Box::new(CEncoding::new(encoding))),
         Err(_) => ptr::null_mut(),
     }
 }
@@ -199,6 +172,9 @@ pub unsafe extern "C" fn tokenizer_decode(
     }
 }
 
+/// He who allocates must deallocate
+/// If rust, allocates the string, **DO NOT CALL `free()`**, allow rust
+/// to deallocate it with `free_rstring`
 #[no_mangle]
 pub unsafe extern "C" fn free_rstring(s: *mut c_char) {
     if !s.is_null() {

@@ -3,6 +3,8 @@ cargo build --release
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 clang -arch arm64 \
     main.c \
+    -Wall \
+    -Wextra \
     -L target/release \
     -ltokenizers_sys \
     -lc++ \

@@ -9,31 +9,37 @@ int main() {
     }
 
     const char* text = "Hello, world!";
-    EncodingResult* encoding = tokenizer_encode(tokenizer, text, true);
+    CEncoding* encoding = tokenizer_encode(tokenizer, text, true);
     if (!encoding) {
         printf("Encoding failed\n");
         tokenizer_free(tokenizer);
         return 1;
     }
 
+    size_t length = encoding_get_length(encoding);
+    const uint32_t* ids = encoding_get_ids(encoding, &length);
+    const char* const* tokens = encoding_get_tokens(encoding, &length);
+    const uint32_t* type_ids = encoding_get_type_ids(encoding, &length);
+    const uint32_t* special_tokens_mask = encoding_get_special_tokens_mask(encoding, &length);
+    const uint32_t* attention_mask = encoding_get_attention_mask(encoding, &length);
+
     printf("Tokens:\n");
-    for (size_t i = 0; i < encoding->length; i++) {
+    for (size_t i = 0; i < length; i++) {
         printf("  %s (ID: %u, Type: %d, Special: %d, Attention: %d)\n",
-               encoding->tokens[i],
-               encoding->ids[i],
-               encoding->type_ids[i],
-               encoding->special_tokens_mask[i],
-               encoding->attention_mask[i]);
+               tokens[i],
+               ids[i],
+               type_ids[i],
+               special_tokens_mask[i],
+               attention_mask[i]);
     }
 
-    char* decoded = tokenizer_decode(tokenizer, encoding->ids, encoding->length, true);
+    char* decoded = tokenizer_decode(tokenizer, ids, length, true);
     if (decoded) {
         printf("\nDecoded text: %s\n", decoded);
-        // FFI: He who allocs must dealloc i.e same side of FFI
-        free_rstring(decoded);
+        free_rstring(decoded);  
     }
 
-    encoding_result_free(encoding);
+    encoding_free(encoding);  
     tokenizer_free(tokenizer);
     return 0;
 }

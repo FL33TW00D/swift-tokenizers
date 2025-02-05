@@ -1,39 +1,170 @@
-use std::ffi::{c_char, c_uint, CString};
+use std::ffi::CString;
+use std::os::raw::c_char;
+use tokenizers as tk;
 
-#[repr(C)]
-pub struct Encoding {
-    pub(crate) ids: *mut c_uint,
-    pub(crate) tokens: *mut *mut c_char,
-    pub(crate) attention_mask: *mut c_uint,
-    pub(crate) type_ids: *mut c_uint,
-    pub(crate) special_tokens_mask: *mut c_uint,
-    pub(crate) length: usize,
+pub struct CEncoding {
+    encoding: tk::tokenizer::Encoding,
 }
 
-/// Frees the Encoding
-///
-/// # Safety
-/// Input must be a valid Encoding
+impl CEncoding {
+    pub fn new(encoding: tk::tokenizer::Encoding) -> Self {
+        Self { encoding }
+    }
+}
+
+impl From<tk::tokenizer::Encoding> for CEncoding {
+    fn from(encoding: tk::tokenizer::Encoding) -> Self {
+        Self::new(encoding)
+    }
+}
+
+impl From<CEncoding> for tk::tokenizer::Encoding {
+    fn from(encoding: CEncoding) -> Self {
+        encoding.encoding
+    }
+}
+
 #[no_mangle]
-pub unsafe extern "C" fn encoding_result_free(result: *mut Encoding) {
-    if result.is_null() {
+pub unsafe extern "C" fn encoding_free(encoding: *mut CEncoding) {
+    if !encoding.is_null() {
+        let _ = Box::from_raw(encoding);
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn encoding_get_length(encoding: *const CEncoding) -> usize {
+    if encoding.is_null() {
+        return 0;
+    }
+    (*encoding).encoding.get_ids().len()
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn encoding_get_ids(
+    encoding: *const CEncoding,
+    length: *mut usize,
+) -> *const u32 {
+    if encoding.is_null() || length.is_null() {
+        return std::ptr::null();
+    }
+    let enc = &(*encoding).encoding;
+    let ids = enc.get_ids();
+    *length = ids.len();
+    ids.as_ptr()
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn encoding_get_tokens(
+    encoding: *const CEncoding,
+    length: *mut usize,
+) -> *mut *mut c_char {
+    if encoding.is_null() || length.is_null() {
+        return std::ptr::null_mut();
+    }
+    let enc = &(*encoding).encoding;
+    let tokens = enc.get_tokens();
+    *length = tokens.len();
+
+    let c_tokens: Vec<*mut c_char> = tokens
+        .iter()
+        .map(|s| CString::new(s.as_str()).unwrap().into_raw())
+        .collect();
+
+    Box::into_raw(c_tokens.into_boxed_slice()) as *mut *mut c_char
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn encoding_get_type_ids(
+    encoding: *const CEncoding,
+    length: *mut usize,
+) -> *const u32 {
+    if encoding.is_null() || length.is_null() {
+        return std::ptr::null();
+    }
+    let enc = &(*encoding).encoding;
+    let type_ids = enc.get_type_ids();
+    *length = type_ids.len();
+    type_ids.as_ptr()
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn encoding_get_special_tokens_mask(
+    encoding: *const CEncoding,
+    length: *mut usize,
+) -> *const u32 {
+    if encoding.is_null() || length.is_null() {
+        return std::ptr::null();
+    }
+    let enc = &(*encoding).encoding;
+    let special_tokens_mask = enc.get_special_tokens_mask();
+    *length = special_tokens_mask.len();
+    special_tokens_mask.as_ptr()
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn encoding_get_attention_mask(
+    encoding: *const CEncoding,
+    length: *mut usize,
+) -> *const u32 {
+    if encoding.is_null() || length.is_null() {
+        return std::ptr::null();
+    }
+    let enc = &(*encoding).encoding;
+    let attention_mask = enc.get_attention_mask();
+    *length = attention_mask.len();
+    attention_mask.as_ptr()
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn encoding_get_offsets(
+    encoding: *const CEncoding,
+    length: *mut usize,
+) -> *const (usize, usize) {
+    if encoding.is_null() || length.is_null() {
+        return std::ptr::null();
+    }
+    let enc = &(*encoding).encoding;
+    let offsets = enc.get_offsets();
+    *length = offsets.len();
+    offsets.as_ptr()
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn encoding_get_overflowing(
+    encoding: *const CEncoding,
+    length: *mut usize,
+) -> *mut CEncoding {
+    if encoding.is_null() || length.is_null() {
+        return std::ptr::null_mut();
+    }
+    let enc = &(*encoding).encoding;
+    let overflowing = enc.get_overflowing();
+    *length = overflowing.len();
+
+    //Why is clone needed here don't understand
+    let c_encodings: Vec<CEncoding> = overflowing.iter().map(|e| e.clone().into()).collect();
+
+    Box::into_raw(c_encodings.into_boxed_slice()) as *mut CEncoding
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn free_c_char_array(array: *mut *mut c_char, length: usize) {
+    if array.is_null() {
         return;
     }
-
-    let r = unsafe { Box::from_raw(result) };
-
-    unsafe {
-        let _ = Box::from_raw(std::slice::from_raw_parts_mut(r.ids, r.length));
-        let _ = Box::from_raw(std::slice::from_raw_parts_mut(r.attention_mask, r.length));
-        let _ = Box::from_raw(std::slice::from_raw_parts_mut(r.type_ids, r.length));
-        let _ = Box::from_raw(std::slice::from_raw_parts_mut(
-            r.special_tokens_mask,
-            r.length,
-        ));
-
-        let tokens = Box::from_raw(std::slice::from_raw_parts_mut(r.tokens, r.length));
-        for token in tokens.iter() {
-            let _ = CString::from_raw(*token);
+    let tokens = std::slice::from_raw_parts(array, length);
+    for &ptr in tokens {
+        if !ptr.is_null() {
+            let _ = CString::from_raw(ptr);
         }
     }
+    let _ = Box::from_raw(std::slice::from_raw_parts_mut(array, length));
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn free_encoding_array(array: *mut CEncoding, length: usize) {
+    if array.is_null() {
+        return;
+    }
+    let _ = Box::from_raw(std::slice::from_raw_parts_mut(array, length));
 }
