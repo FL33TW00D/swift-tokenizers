@@ -138,9 +138,9 @@ pub unsafe extern "C" fn encoding_get_overflowing(
         return std::ptr::null_mut();
     }
     let enc = &(*encoding).encoding;
-    // Clone the Vec itself first, then we own all the Encodings
-    let overflowing = enc.get_overflowing().clone();
+    let overflowing = enc.get_overflowing().clone(); //Python wrapper clones
     *length = overflowing.len();
+
     let c_encodings: Vec<CEncoding> = overflowing.into_iter().map(|e| e.into()).collect();
     Box::into_raw(c_encodings.into_boxed_slice()) as *mut CEncoding
 }

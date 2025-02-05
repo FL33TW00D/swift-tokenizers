@@ -2,7 +2,7 @@
 cargo build --release
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 clang -arch arm64 \
-    main.c \
+    examples/tokenize.c \
     -Wall \
     -Wextra \
     -L target/release \
@@ -11,5 +11,6 @@ clang -arch arm64 \
     -framework Security \
     -framework Foundation \
     -rpath @executable_path/../target/release \
-    -o example
+    -o examples/tokenize 
 echo "Build completed with status: $?"
+echo "Run ./examples/tokenize"

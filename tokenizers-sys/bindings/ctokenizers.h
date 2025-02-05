@@ -5,7 +5,38 @@
 
 typedef struct CEncoding CEncoding;
 
+typedef struct ModelHandle ModelHandle;
+
 typedef struct TokenizerHandle TokenizerHandle;
+
+typedef struct BPEConfig {
+  const char *vocab_path;
+  const char *merges_path;
+  uintptr_t cache_capacity;
+  float dropout;
+  const char *unk_token;
+  const char *continuing_subword_prefix;
+  const char *end_of_word_suffix;
+  bool fuse_unk;
+  bool byte_fallback;
+} BPEConfig;
+
+typedef struct WordPieceConfig {
+  const char *vocab_path;
+  const char *unk_token;
+  uintptr_t max_input_chars_per_word;
+  const char *continuing_subword_prefix;
+} WordPieceConfig;
+
+typedef struct WordLevelConfig {
+  const char *vocab_path;
+  const char *unk_token;
+} WordLevelConfig;
+
+typedef struct UnigramVocabItem {
+  const char *token;
+  double score;
+} UnigramVocabItem;
 
 void encoding_free(struct CEncoding *encoding);
 
@@ -27,6 +58,26 @@ struct CEncoding *encoding_get_overflowing(const struct CEncoding *encoding, uin
 void free_c_char_array(char **array, uintptr_t length);
 
 void free_encoding_array(struct CEncoding *array, uintptr_t length);
+
+void tk_model_free(struct ModelHandle *model);
+
+bool tk_model_tokenize(struct ModelHandle *model,
+                       const char *sequence,
+                       char **tokens_ptr,
+                       uintptr_t *n_tokens);
+
+void tk_model_free_tokens(char **tokens, uintptr_t n_tokens);
+
+struct ModelHandle *tk_bpe_new(const struct BPEConfig *config);
+
+struct ModelHandle *wordpiece_new(const struct WordPieceConfig *config);
+
+struct ModelHandle *wordlevel_new(const struct WordLevelConfig *config);
+
+struct ModelHandle *tk_unigram_new(const struct UnigramVocabItem *vocab,
+                                   uintptr_t vocab_size,
+                                   const uintptr_t *unk_id,
+                                   bool byte_fallback);
 
 /**
  * Frees the tokenizer handle
