@@ -42,3 +42,4 @@ Right now this just links a `dylib` compiled from [tokenizers-sys](https://githu
 ## TODO
 - [ ] Pass 100% of `swift-transformers` Tokenizer tests
 - [ ] Add chat templates support
+- [ ] C API won't expose async, so we may want to use `Hub` package and avoid using `fromPretrained` from the Rust package.
