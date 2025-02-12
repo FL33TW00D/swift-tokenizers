@@ -2,9 +2,15 @@ import Foundation
 import CTokenizers
 
 public enum TokenizerError: Error {
+    case missingConfig
+    case missingTokenizerClassInConfig
+    case unsupportedTokenizer(String)
+    case missingVocab
+    case malformedVocab
+    case chatTemplate(String)
+    case tooLong(String)
+    case mismatchedConfig(String)
     case initializationFailed
-    case encodingFailed
-    case decodingFailed
 }
 
 //https://www.swift.org/documentation/articles/wrapping-c-cpp-library-in-swift.html
@@ -105,8 +111,8 @@ public class Tokenizer {
     ///   - revision: Optional model revision
     ///   - token: Optional authentication token
     /// - Throws: TokenizerError if initialization fails
-    public static func fromPretrained(
-        name: String,
+    static func from(
+        pretrained model_name_or_path: String,
         revision: String? = nil,
         token: String? = nil
     ) throws -> Tokenizer {
@@ -115,7 +121,7 @@ public class Tokenizer {
             token: token?.utf8CString.withUnsafeBufferPointer { $0.baseAddress }
         )
         
-        guard let handle = tokenizer_from_pretrained(name, &params) else {
+        guard let handle = tokenizer_from_pretrained(model_name_or_path, &params) else {
             throw TokenizerError.initializationFailed
         }
         
@@ -125,7 +131,7 @@ public class Tokenizer {
     /// Create a tokenizer from a file
     /// - Parameter path: Path to the tokenizer file
     /// - Throws: TokenizerError if initialization fails
-    public static func fromFile(_ path: String) throws -> Tokenizer {
+    static func fromFile(_ path: String) throws -> Tokenizer {
         guard let handle = tokenizer_from_file(path) else {
             throw TokenizerError.initializationFailed
         }
@@ -135,7 +141,7 @@ public class Tokenizer {
     /// Create a tokenizer from a buffer containing a serialized tokenizer
     /// - Parameter buffer: Data containing the serialized tokenizer
     /// - Throws: TokenizerError if initialization fails
-    public static func fromBuffer(_ buffer: Data) throws -> Tokenizer {
+    static func fromBuffer(_ buffer: Data) throws -> Tokenizer {
         return try buffer.withUnsafeBytes { bufferPtr in
             guard let handle = tokenizer_from_buffer(
                 bufferPtr.baseAddress?.assumingMemoryBound(to: UInt8.self),
@@ -154,11 +160,11 @@ public class Tokenizer {
     /// - Throws: TokenizerError if encoding fails
     /// - Returns: An Encoding object containing the results
     public func encode(
-        _ text: String,
+        input text: String,
         addSpecialTokens: Bool = true
     ) throws -> Encoding {
         guard let encoding = tokenizer_encode(handle, text, addSpecialTokens) else {
-            throw TokenizerError.encodingFailed
+            throw TokenizerError.initializationFailed
         }
         return Encoding(encoding: encoding)
     }
@@ -180,11 +186,23 @@ public class Tokenizer {
                 UInt(buffer.count),
                 skipSpecialTokens
             ) else {
-                throw TokenizerError.decodingFailed
+                throw TokenizerError.initializationFailed
             }
             let result = String(cString: decoded)
             free_rstring(decoded)
             return result
         }
+    }
+}
+
+public struct AutoTokenizer {}
+
+
+extension AutoTokenizer {
+    public static func from(pretrained model_name_or_path: String) throws -> Tokenizer {
+        guard let tokenizer = try Tokenizer.from(pretrained: model_name_or_path) as? Tokenizer else {
+            throw TokenizerError.initializationFailed
+        }
+        return tokenizer
     }
 }
