@@ -35,3 +35,7 @@ func NLLBTokenizer() async throws {
 }
 ```
 
+## Packaging
+
+Right now this just links a `dylib` compiled from [tokenizers-sys](https://github.com/FL33TW00D/tokenizers-sys/tree/master), so resolving packaging for all platforms is another step to take.
+
