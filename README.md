@@ -27,8 +27,8 @@ Only works on ARM Macs today, common sense required to build for other platforms
 3. Check that `/target/release/libtokenizers_sys.dylib` exists
 4. Clone [swift-tokenizers](https://github.com/FL33TW00D/swift-tokenizers/tree/master)
 5. `cp ~/tokenizers-sys/target/release/libtokenizers_sys.dylib ~/swift-tokenizers/dependencies`
-6. swift build
-7. swift test
+6. `swift build`
+7. `swift test`
 8. 😎
 
 ## Usage
