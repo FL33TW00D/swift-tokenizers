@@ -22,10 +22,10 @@ RUST (Core Tokenizer) -> C (Bridge) -> Swift (API)
 Only works on ARM Macs today, common sense required to build for other platforms (`dylib` -> `so` etc etc).
 
 1. Create a parent directory and cd into it.
-1. Clone [tokenizers-sys](https://github.com/FL33TW00D/tokenizers-sys/tree/master)
-2. Clone [swift-tokenizers](https://github.com/FL33TW00D/swift-tokenizers/tree/master)
+1. Clone [tokenizers-sys](https://github.com/FL33TW00D/tokenizers-sys/tree/master).
+2. Clone [swift-tokenizers](https://github.com/FL33TW00D/swift-tokenizers/tree/master).
 3. `cd tokenizers-sys`
-4. Run `./compile-ex.sh`
+4. Run `./compile-ex.sh`.
 5. Check that `./target/release/libtokenizers_sys.dylib` exists.
 6. `cd ..`
 7. `cp ./tokenizers-sys/target/release/libtokenizers_sys.dylib ./swift-tokenizers/dependencies/libtokenizers_sys.dylib`
