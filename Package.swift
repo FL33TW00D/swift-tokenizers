@@ -8,6 +8,9 @@ let package = Package(
             name: "Tokenizers",
             targets: ["Tokenizers"]),
     ],
+    dependencies: [
+        .package(url: "https://github.com/greenrazer/swift-hub.git", branch: "main"),
+    ],
     targets: [
         .target(
             name: "CTokenizers",
@@ -22,6 +25,6 @@ let package = Package(
         ),
         .testTarget(
             name: "TokenizersTests",
-            dependencies: ["Tokenizers"]),
+            dependencies: ["Tokenizers", .product(name: "Hub", package: "swift-hub")]),
     ]
 )
