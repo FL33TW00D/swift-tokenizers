@@ -116,6 +116,10 @@ public class Tokenizer {
         revision: String? = nil,
         token: String? = nil
     ) throws -> Tokenizer {
+        //TODO: we shouldn't use this at all,
+        // We should use the HubAPI to manually fetch it, then we can
+        // use one of the other methods like fromBuffer
+        // Why? C is not asynchronous
         var params = CFromPretrainedParameters(
             revision: revision?.utf8CString.withUnsafeBufferPointer { $0.baseAddress },
             token: token?.utf8CString.withUnsafeBufferPointer { $0.baseAddress }
