@@ -1,5 +1,5 @@
 {
-  "originHash" : "1035c32d9e8a27efedd84bd6d5d7ca022bb373db1153cbd096b659286fd587ee",
+  "originHash" : "a9013db15f79076c725e57e03fbc61b2cf03d966fb5475e2531a28a2ee210910",
   "pins" : [
     {
       "identity" : "swift-argument-parser",
@@ -13,7 +13,7 @@
     {
       "identity" : "swift-hub",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/greenrazer/swift-hub.git",
+      "location" : "https://github.com/FL33TW00D/swift-hub.git",
       "state" : {
         "branch" : "main",
         "revision" : "ff1184c91b9a754c1f4983d2a411854362d35c49"
